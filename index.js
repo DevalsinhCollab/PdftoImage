@@ -1,10 +1,10 @@
-import express from 'express';
-import fs from 'fs/promises';
-import path from 'path';
-import { exec } from 'child_process';
-import sharp from 'sharp';
-import { PDFDocument } from 'pdf-lib';
-import { tmpdir } from 'os';
+const express = require("express")
+const fs = require("fs/promises")
+const path = require("path")
+const { exec } = require("child_process")
+const sharp = require("sharp")
+const { PDFDocument } = require("pdf-lib")
+const { tmpdir } = require("os")
 
 const app = express();
 const PORT = 8001;
