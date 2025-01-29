@@ -1,0 +1,21 @@
+{
+  "name": "convert_pdf_to_img",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "fs-extra": "^11.3.0",
+    "mupdf-js": "^2.0.1",
+    "pdf-lib": "^1.17.1",
+    "pdf-poppler": "^0.2.1",
+    "pdf2pic": "^3.1.3",
+    "sharp": "^0.33.5"
+  }
+}
