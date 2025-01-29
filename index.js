@@ -69,6 +69,10 @@ const imagesToPdf = async (images) => {
     return await pdfDoc.save();
 }
 
+app.get('/', (req, res) => {
+    res.send('Hello World');
+});
+
 // API Endpoint: Convert PDF to images and back to PDF in Base64 format
 app.post('/api/convertPdf', async (req, res) => {
     try {
