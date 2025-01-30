@@ -102,7 +102,11 @@ app.post('/api/convertPdf', async (req, res) => {
 
         console.timeEnd('⏳ Total Processing Time');
 
-        return res.json({ data: base64Output });
+        return res.status(200).json({
+            success: true,
+            message: "Document converted successfully",
+            data: base64Output,
+        });
     } catch (error) {
         console.error('❌ Error:', error);
         return res.status(500).json({ error: "Internal Server Error", details: error.toString() });
