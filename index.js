@@ -1,10 +1,10 @@
-const express = require("express")
-const fs = require("fs/promises")
-const path = require("path")
-const { exec } = require("child_process")
-const sharp = require("sharp")
-const { PDFDocument } = require("pdf-lib")
-const { tmpdir } = require("os")
+const express = require("express");
+const fs = require("fs/promises");
+const path = require("path");
+const { exec } = require("child_process");
+const sharp = require("sharp");
+const { PDFDocument } = require("pdf-lib");
+const { tmpdir } = require("os");
 
 const app = express();
 const PORT = 8001;
@@ -17,15 +17,6 @@ const base64ToBuffer = (base64String) => Buffer.from(base64String, 'base64');
 // Function to encode Buffer to Base64
 const pdfToBase64 = (pdfBuffer) => Buffer.from(pdfBuffer).toString('base64');
 
-// Function to save Base64 output to `output.js`
-const saveBase64ToFile = async (base64Data) => {
-    const outputFilePath = path.join(process.cwd(), 'output.js');
-    const outputContent = `const base64PdfOutput = '${base64Data}';\nexport { base64PdfOutput };`;
-
-    await fs.writeFile(outputFilePath, outputContent, 'utf8');
-    console.log('✅ Base64 output saved to output.js');
-}
-
 // Function to convert PDF to images using pdftoppm
 const pdfToImages = async (pdfBuffer) => {
     const tempDir = await fs.mkdtemp(path.join(tmpdir(), 'pdf_to_images_'));
@@ -36,14 +27,22 @@ const pdfToImages = async (pdfBuffer) => {
     return new Promise((resolve, reject) => {
         const outputFilePattern = path.join(tempDir, 'page');
 
-        exec(`pdftoppm "${tempPdfPath}" "${outputFilePattern}" -png`, async (error, stdout, stderr) => {
+        exec(`pdftoppm -png "${tempPdfPath}" "${outputFilePattern}"`, async (error, stdout, stderr) => {
             if (error) {
                 return reject(`Error executing pdftoppm: ${stderr}`);
             }
 
             try {
-                const imageFiles = (await fs.readdir(tempDir))
+                let imageFiles = await fs.readdir(tempDir);
+                
+                // Sort files by their numerical page number
+                imageFiles = imageFiles
                     .filter(file => file.endsWith('.png'))
+                    .sort((a, b) => {
+                        const numA = parseInt(a.match(/\d+/)[0], 10);
+                        const numB = parseInt(b.match(/\d+/)[0], 10);
+                        return numA - numB;
+                    })
                     .map(file => path.join(tempDir, file));
 
                 resolve(imageFiles);
@@ -52,22 +51,28 @@ const pdfToImages = async (pdfBuffer) => {
             }
         });
     });
-}
+};
 
 // Function to merge images and convert back to PDF
 const imagesToPdf = async (images) => {
     const pdfDoc = await PDFDocument.create();
     const a4Width = 595, a4Height = 842; // A4 dimensions
 
-    await Promise.all(images.map(async (image) => {
-        const imageBuffer = await sharp(image).toBuffer();
+    for (const image of images) {
+        const imageBuffer = await sharp(image).resize({ width: a4Width, height: a4Height, fit: 'inside' }).toBuffer();
         const img = await pdfDoc.embedPng(imageBuffer);
+
+        const { width, height } = img.scale(1);
         const page = pdfDoc.addPage([a4Width, a4Height]);
-        page.drawImage(img, { x: 0, y: 0, width: a4Width, height: a4Height });
-    }));
+        
+        // Center image on page while maintaining aspect ratio
+        const x = (a4Width - width) / 2;
+        const y = (a4Height - height) / 2;
+        page.drawImage(img, { x, y, width, height });
+    }
 
     return await pdfDoc.save();
-}
+};
 
 app.get('/', (req, res) => {
     res.send('Hello World');
@@ -96,9 +101,6 @@ app.post('/api/convertPdf', async (req, res) => {
         console.time('⏳ Converting final PDF to Base64');
         const base64Output = pdfToBase64(mergedPdf);
         console.timeEnd('⏳ Converting final PDF to Base64');
-
-        // Save the output to a file
-        // await saveBase64ToFile(base64Output);
 
         console.timeEnd('⏳ Total Processing Time');
 
