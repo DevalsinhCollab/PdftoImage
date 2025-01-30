@@ -17,7 +17,7 @@ const base64ToBuffer = (base64String) => Buffer.from(base64String, 'base64');
 // Function to encode Buffer to Base64
 const pdfToBase64 = (pdfBuffer) => Buffer.from(pdfBuffer).toString('base64');
 
-// Function to convert PDF to images using pdftoppm
+// Function to convert PDF to high-quality images using pdftoppm
 const pdfToImages = async (pdfBuffer) => {
     const tempDir = await fs.mkdtemp(path.join(tmpdir(), 'pdf_to_images_'));
     const tempPdfPath = path.join(tempDir, 'temp.pdf');
@@ -27,15 +27,16 @@ const pdfToImages = async (pdfBuffer) => {
     return new Promise((resolve, reject) => {
         const outputFilePattern = path.join(tempDir, 'page');
 
-        exec(`pdftoppm -png "${tempPdfPath}" "${outputFilePattern}"`, async (error, stdout, stderr) => {
+        // Increase DPI to 300 for higher quality images
+        exec(`pdftoppm -png -rx 300 -ry 300 "${tempPdfPath}" "${outputFilePattern}"`, async (error, stdout, stderr) => {
             if (error) {
                 return reject(`Error executing pdftoppm: ${stderr}`);
             }
 
             try {
                 let imageFiles = await fs.readdir(tempDir);
-                
-                // Sort files by their numerical page number
+
+                // Sort images numerically to maintain page order
                 imageFiles = imageFiles
                     .filter(file => file.endsWith('.png'))
                     .sort((a, b) => {
@@ -53,19 +54,24 @@ const pdfToImages = async (pdfBuffer) => {
     });
 };
 
-// Function to merge images and convert back to PDF
+// Function to merge high-quality images into a PDF
 const imagesToPdf = async (images) => {
     const pdfDoc = await PDFDocument.create();
     const a4Width = 595, a4Height = 842; // A4 dimensions
 
     for (const image of images) {
-        const imageBuffer = await sharp(image).resize({ width: a4Width, height: a4Height, fit: 'inside' }).toBuffer();
+        // Process image with sharp() to maintain quality
+        const imageBuffer = await sharp(image)
+            .resize({ width: a4Width, fit: 'inside' }) // Keep width same, fit inside page
+            .png({ quality: 90 }) // Higher quality PNG
+            .toBuffer();
+
         const img = await pdfDoc.embedPng(imageBuffer);
 
         const { width, height } = img.scale(1);
         const page = pdfDoc.addPage([a4Width, a4Height]);
-        
-        // Center image on page while maintaining aspect ratio
+
+        // Center image on page
         const x = (a4Width - width) / 2;
         const y = (a4Height - height) / 2;
         page.drawImage(img, { x, y, width, height });
@@ -78,7 +84,7 @@ app.get('/', (req, res) => {
     res.send('Hello World');
 });
 
-// API Endpoint: Convert PDF to images and back to PDF in Base64 format
+// API Endpoint: Convert PDF to high-quality images and back to PDF in Base64 format
 app.post('/api/convertPdf', async (req, res) => {
     try {
         const { base64Pdf } = req.body;
@@ -90,13 +96,13 @@ app.post('/api/convertPdf', async (req, res) => {
         const pdfBuffer = base64ToBuffer(base64Pdf);
         console.timeEnd('⏳ Decoding Base64 input');
 
-        console.time('⏳ Converting PDF to images');
+        console.time('⏳ Converting PDF to high-quality images');
         const images = await pdfToImages(pdfBuffer);
-        console.timeEnd('⏳ Converting PDF to images');
+        console.timeEnd('⏳ Converting PDF to high-quality images');
 
-        console.time('⏳ Merging images into a new PDF');
+        console.time('⏳ Merging high-quality images into a new PDF');
         const mergedPdf = await imagesToPdf(images);
-        console.timeEnd('⏳ Merging images into a new PDF');
+        console.timeEnd('⏳ Merging high-quality images into a new PDF');
 
         console.time('⏳ Converting final PDF to Base64');
         const base64Output = pdfToBase64(mergedPdf);
