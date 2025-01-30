@@ -63,7 +63,7 @@ const imagesToPdf = async (images) => {
         // Process image with sharp() to maintain quality
         const imageBuffer = await sharp(image)
             .resize({ width: a4Width, fit: 'inside' }) // Keep width same, fit inside page
-            .png({ quality: 90 }) // Higher quality PNG
+            .png({ quality: 120 }) // Higher quality PNG
             .toBuffer();
 
         const img = await pdfDoc.embedPng(imageBuffer);
